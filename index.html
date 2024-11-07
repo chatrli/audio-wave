@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Audio Wave</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            height: 100vh;
+            margin: 0;
+            background-color: black;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+        }
+        .audio-player {
+            text-align: center;
+        }
+        button {
+            cursor: pointer;
+            margin: 5px;
+            padding: 10px;
+            background-color: purple;
+            border: none;
+            color: white;
+        }
+        canvas {
+            margin-top: 20px;
+            border: 1px solid white;
+            background-color: grey;
+        }
+        .audio-progress-bar-container {
+            position: relative;
+            width: 80%;
+            height: 10px;
+            background-color: grey;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        #audio-progress-bar {
+            height: 100%;
+            background-color: purple;
+            width: 0;
+            border-radius: 5px;
+            transition: width 0.1s linear;
+        }
+    </style>
+</head>
+<body>
+    <div class="audio-player">
+        <button id="play-n-pause-button">Play</button>
+        <button id="stop-button">Stop</button>
+        <input type="file" id="audio-file" accept="audio/*">
+    </div>
+    <div class="audio-progress-bar-container">
+        <div id="audio-progress-bar"></div>
+    </div>
+    <canvas id="visualiser"></canvas>
+    <script>
+        // controls
+        const playNPauseButton = document.getElementById('play-n-pause-button');
+        const stopButton = document.getElementById('stop-button');
+        const audioFile = document.getElementById('audio-file');
+        const progressBar = document.getElementById('audio-progress-bar');
+        let audio = null;
+        let isPlayingAudio = false;
+
+        function togglePlayOrPause() {
+            if (!audio) return;
+            if (isPlayingAudio) {
+                pauseAudio();
+            } else {
+                playAudio();
+            }
+        }
+
+        function playAudio() {
+            audio.play();
+            playNPauseButton.textContent = 'Pause';
+            isPlayingAudio = true;
+            drawVisualiser();
+        }
+
+        function pauseAudio() {
+            audio.pause();
+            playNPauseButton.textContent = 'Play';
+            isPlayingAudio = false;
+        }
+
+        function stopAudio() {
+            if (audio) {
+                audio.pause();
+                audio.currentTime = 0;
+                playNPauseButton.textContent = 'Play';
+                isPlayingAudio = false;
+            }
+        }
+
+        function loadAudio(event) {
+            const file = event.target.files[0];
+            if (file) {
+                if (audio) stopAudio();
+                audio = new Audio(URL.createObjectURL(file));
+                playNPauseButton.textContent = 'Play';
+                isPlayingAudio = false;
+                setProgressListener();
+                initAudioContext();
+                connectToAudioSource();
+            }
+            audio.addEventListener('timeupdate', updateProgressBar);
+        }
+
+        function setProgressListener() {
+            if (audio) {
+                audio.addEventListener('timeupdate', updateProgressBar);
+            }
+        }
+
+        function updateProgressBar() {
+            if (audio && audio.duration > 0) {
+                const progress = (audio.currentTime / audio.duration) * 100;
+                progressBar.style.width = `${progress}%`;
+            }    
+        }
+
+        playNPauseButton.addEventListener('click', togglePlayOrPause);
+        stopButton.addEventListener('click', stopAudio);
+        audioFile.addEventListener('change', loadAudio);
+
+        // audio handling
+        let audioContext = null;
+        let analyser = null;
+        let source = null;
+        let data = null;
+        let bufferLength = 0;
+
+        function initAudioContext() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 2048; // (resolution of frquency data)
+                bufferLength = analyser.frequencyBinCount;
+                data = new Uint8Array(bufferLength);
+            }
+        }
+
+        function connectToAudioSource() {
+            if (audio && audioContext && !source) {
+                source = audioContext.createMediaElementSource(audio);
+                source.connect(analyser);
+                analyser.connect(audioContext.destination);
+            }
+        }
+
+        // audio visualisation
+        const canvas = document.getElementById('visualiser');
+        const canvasCtx = canvas.getContext('2d');
+
+        function drawVisualiser() {
+            if (!analyser) return;
+            canvasCtx.clearRect(0, 0, canvas.width, canvas.height); // clean canvas each frame
+            analyser.getByteTimeDomainData(data);
+            canvasCtx.lineWidth = 2;
+            canvasCtx.strokeStyle = 'purple';
+            canvasCtx.beginPath();
+            const sliceWidth = canvas.width / bufferLength;
+            let x = 0;
+            for (let i = 0; i < bufferLength; i++) {
+                const v = data[i] / 128.0;
+                const y = (v * canvas.height) / 2;
+                if (i === 0) {
+                    canvasCtx.moveTo(x, y);
+                } else {
+                    canvasCtx.lineTo(x, y);
+                }
+                x += sliceWidth;
+            }
+            canvasCtx.lineTo(canvas.width, canvas.height / 2);
+            canvasCtx.stroke();
+            requestAnimationFrame(drawVisualiser);
+        }
+    </script>
+</body>
+</html>
