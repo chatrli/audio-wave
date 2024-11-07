@@ -50,8 +50,10 @@
 </head>
 <body>
     <div class="audio-player">
+        <button id="backward-button">-10s</button>
         <button id="play-n-pause-button">Play</button>
         <button id="stop-button">Stop</button>
+        <button id="forward-button">+10s</button>
         <input type="file" id="audio-file" accept="audio/*">
     </div>
     <div class="audio-progress-bar-container">
@@ -60,8 +62,10 @@
     <canvas id="visualiser"></canvas>
     <script>
         // controls
+        const backwardButton = document.getElementById('backward-button');
         const playNPauseButton = document.getElementById('play-n-pause-button');
         const stopButton = document.getElementById('stop-button');
+        const forwardButton = document.getElementById('forward-button');
         const audioFile = document.getElementById('audio-file');
         const progressBar = document.getElementById('audio-progress-bar');
         let audio = null;
@@ -98,6 +102,19 @@
             }
         }
 
+        function skipBackward() {
+            if (audio) {
+                audio.currentTime = Math.max(0, audio.currentTime - 10);
+            }
+        }
+
+        function skipForward() {
+            if (audio) {
+                audio.currentTime = Math.min(audio.duration, audio.currentTime + 10);
+            }
+        }
+
+
         function loadAudio(event) {
             const file = event.target.files[0];
             if (file) {
@@ -128,6 +145,8 @@
         playNPauseButton.addEventListener('click', togglePlayOrPause);
         stopButton.addEventListener('click', stopAudio);
         audioFile.addEventListener('change', loadAudio);
+        backwardButton.addEventListener('click', skipBackward);
+        forwardButton.addEventListener('click', skipForward);
 
         // audio handling
         let audioContext = null;
